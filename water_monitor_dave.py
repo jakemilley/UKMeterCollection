@@ -6,17 +6,17 @@ import subprocess
 import time
 
 # PS: Let's kill any other instances that may be running
-val1 = os.system("taskkill /f /im rtl_tcp.exe")    
-val2 = os.system("taskkill /f /im rtlamr.exe")    
+val1 = os.system("killall -KILL rtlamr")    
+val2 = os.system("killall -KILL rtl_tcp")    
 
 time.sleep(2)
 
-listenersproc = subprocess.Popen('C:\\rtl-sdr\\rtl_tcp.exe')
+listenersproc = subprocess.Popen('rtl_tcp')
 
 # Delay. Totally a hack, but we need to wait for the listener to start.
-time.sleep(2*5)
+time.sleep(2)
 
-proc = subprocess.Popen(['C:\\rtl-sdr\\rtlamr.exe','-msgtype=r900', '-filterid=YOUR_WATER_METER_ID', '-format=json'],stdout=subprocess.PIPE)
+proc = subprocess.Popen('~/go/bin/rtlamr', shell=True)
 
 
 try:
@@ -37,17 +37,17 @@ try:
         nouseflag = data['Message']['NoUse']
 
         output = "Carmack water reading detected! Consumption is [{}], Leak [{}], LeakNow [{}], BlackFlow [{}], NoUse [{}]".format(reading, leakflag, leaknowflag, backflowflag, nouseflag)
-        print output
+        print(output)
 		
 		#PS: Break out of our loop once we've reading our values (comment out below 3 lines to keep it repeating indefinitely)
-        os.system("taskkill /f /im rtlamr.exe")
-        os.system("taskkill /f /im rtl_tcp.exe")
+        os.system("taskkill /f /im ~/go/bin/rtlamr")
+        os.system("taskkill /f /im rtl_tcp")
         break
 
 except KeyboardInterrupt:
   print("interrupted!")
-  os.system("taskkill /f /im rtlamr.exe")
-  os.system("taskkill /f /im rtl_tcp.exe")
+  os.system("taskkill /f /im ~/go/bin/rtlamr")
+  os.system("taskkill /f /im rtl_tcp")
   
   
 exit(0)
