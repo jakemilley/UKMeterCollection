@@ -4,6 +4,9 @@ import sys
 import json
 import subprocess
 import time
+from pyModbusTCP.client import ModbusClient
+c = ModbusClient(host="192.168.2.124", port=502)
+c.write_single_register(10,1)
 
 # PS: Let's kill any other instances that may be running
 val1 = os.system("killall -KILL rtlamr")    
@@ -13,41 +16,77 @@ time.sleep(2)
 
 listenersproc = subprocess.Popen('rtl_tcp')
 
-# Delay. Totally a hack, but we need to wait for the listener to start.
-time.sleep(2)
 
-proc = subprocess.Popen('~/go/bin/rtlamr', shell=True)
-
-
-try:
-  while True:
-    line = proc.stdout.readline()
-    if not line:
-        break
+# def listToString(s):
+#     str1 = ""
+#     for ele in s:
+#         str1 += ele
+#     return str1
     
-    try:
-        data=json.loads(line.decode("utf-8"))
-    except ValueError:
-        print("Error")
-    else:
-        reading = str( int(data['Message']['Consumption']) / 100)
-        leakflag = data['Message']['Leak']
-        leaknowflag = data['Message']['LeakNow']		
-        backflowflag = data['Message']['BackFlow']
-        nouseflag = data['Message']['NoUse']
+while True:
+    time.sleep(1)
+    proc = subprocess.Popen('~/go/bin/rtlamr -format=json',stdout=subprocess.PIPE, shell=True)
+    time.sleep(1)
+    number_of_points=0
+    for number_of_points in range(5):
+        try:
+            try:
+                line = proc.stdout.readline()
+            except:
+                print("No data!")
+            
+            try:
+                #print(line)
+                data=json.loads(line.decode("utf-8"))
+                #print(data)
+            except ValueError:
+                print("Json error")
+                number_of_points+=1
+                data = False
+            if data:
+                meterID = str( int(data['Message']['ID']))
+                consumption = str( int(data['Message']['Consumption']))
+                print(meterID)
+                print(consumption)
+                number_of_points+=1
+            
 
-        output = "Carmack water reading detected! Consumption is [{}], Leak [{}], LeakNow [{}], BlackFlow [{}], NoUse [{}]".format(reading, leakflag, leaknowflag, backflowflag, nouseflag)
-        print(output)
-		
-		#PS: Break out of our loop once we've reading our values (comment out below 3 lines to keep it repeating indefinitely)
-        os.system("taskkill /f /im ~/go/bin/rtlamr")
-        os.system("taskkill /f /im rtl_tcp")
-        break
+        except KeyboardInterrupt:
+            print("interrupted!")
+            val1 = os.system("killall -KILL rtlamr")    
+            val2 = os.system("killall -KILL rtl_tcp")
+        
+    val1 = os.system("killall -KILL rtlamr")
+    time.sleep(1)
+    proc = subprocess.Popen('~/go/bin/rtlamr -msgtype=scm+ -format=json',stdout=subprocess.PIPE, shell=True)
+    time.sleep(1)
+    number_of_points=0
+    for number_of_points in range(5):
+        try:
+            try:
+                line = proc.stdout.readline()
+            except:
+                print("No data!")
+            
+            try:
+                #print(line)
+                data=json.loads(line.decode("utf-8"))
+                #print(data)
+            except ValueError:
+                print("Json error")
+                data = False
+            if data:
+                meterID = str( int(data['Message']['EndpointID']))
+                consumption = str( int(data['Message']['Consumption']))
+                print(meterID)
+                print(consumption)
+    
 
-except KeyboardInterrupt:
-  print("interrupted!")
-  os.system("taskkill /f /im ~/go/bin/rtlamr")
-  os.system("taskkill /f /im rtl_tcp")
-  
-  
+        except KeyboardInterrupt:
+            print("interrupted!")
+            val1 = os.system("killall -KILL rtlamr")    
+            val2 = os.system("killall -KILL rtl_tcp")
+            
+    val1 = os.system("killall -KILL rtlamr")  
+    time.sleep(1)
 exit(0)
