@@ -4,7 +4,12 @@ import sys
 import json
 import subprocess
 import time
+import csv
 from pyModbusTCP.client import ModbusClient
+from datetime import datetime
+global Measurement
+Measurement = 'm3'
+
 c = ModbusClient(host="192.168.2.124", port=502)
 c.write_single_register(10,1)
 
@@ -15,6 +20,20 @@ val2 = os.system("killall -KILL rtl_tcp")
 time.sleep(2)
 
 listenersproc = subprocess.Popen('rtl_tcp')
+
+def csvLogger(MeterNumber, Value):
+    
+    current_time = time.time()
+    today = datetime.now()
+    Timestamp = today.strftime("%Y-%m-%dT%H:%M:%S")
+    minutes = str(int(current_time/60))
+    seconds = str(int(current_time % 60))
+    milliseconds = str(int(((current_time-int(current_time))*1000)))
+    csvfile = open('MeterConsumption.csv', 'a', newline ='', encoding='utf-8')
+    c = csv.writer(csvfile)
+    data_to_save = [MeterNumber, Measurement, Timestamp, Value]
+    c.writerow(data_to_save)
+    csvfile.close()
 
 
 # def listToString(s):
@@ -49,7 +68,7 @@ while True:
                 print(meterID)
                 print(consumption)
                 number_of_points+=1
-            
+                csvLogger(meterID, consumption)
 
         except KeyboardInterrupt:
             print("interrupted!")
@@ -80,6 +99,7 @@ while True:
                 consumption = str( int(data['Message']['Consumption']))
                 print(meterID)
                 print(consumption)
+                csvLogger(meterID, consumption)
     
 
         except KeyboardInterrupt:
