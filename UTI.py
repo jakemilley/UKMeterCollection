@@ -41,9 +41,9 @@ def signal_handler(sig, frame):
 
 def button_pressed_callback(channel):
     print("Button pressed!")
-    GPIO.output(greenLED,GPIO.HIGH)
-    time.sleep(0.1)
     GPIO.output(greenLED,GPIO.LOW)
+    GPIO.output(RedLED,GPIO.LOW)
+    os.execl(sys.executable, sys.executable, *sys.argv)
     
 def csvLogger(MeterNumber, Value, Type):
     
@@ -71,6 +71,12 @@ def getCurrentTime():
     Timestamp = today.strftime("%Y-%m-%dT%H:%M")
     return Timestamp
 
+def Timeout(current_time, timeout):
+    if time.time() > current_time + timeout:
+        return False
+    else:
+        return True
+    
 def storeData(identity,usage,meterType):
     global PreviousTime
     if (getCurrentTime() == PreviousTime and not identity in meterList):
@@ -92,75 +98,89 @@ def storeData(identity,usage,meterType):
             time.sleep(0.1)
             GPIO.output(greenLED,GPIO.LOW)
             meterList.append(identity)
-    
-while True:
-    GPIO.output(RedLED,GPIO.HIGH)
-    time.sleep(1)
-    proc = subprocess.Popen('/home/pi/go/bin/rtlamr -format=json',stdout=subprocess.PIPE, shell=True)
-    time.sleep(1)
-    number_of_points=0
-    for number_of_points in range(5):
-        try:
-            try:
-                line = proc.stdout.readline()
-            except:
-                print("No data!")
-            
-            try:
-                #print(line)
-                data=json.loads(line.decode("utf-8"))
-                #print(data)
-            except ValueError:
-                print("Json error")
-                number_of_points+=1
-                data = False
-            if data:
-                meterID = str( int(data['Message']['ID']))
-                consumption = str( int(data['Message']['Consumption']))
-                metertype = str(data['Message']['Type'])
-                storeData(meterID,consumption,metertype)
-                  
-                
  
-        except KeyboardInterrupt:
-            print("interrupted!")
-            val1 = os.system("killall -KILL rtlamr")    
-            val2 = os.system("killall -KILL rtl_tcp")
-        
-    val1 = os.system("killall -KILL rtlamr")
-    time.sleep(1)
-    proc = subprocess.Popen('/home/pi/go/bin/rtlamr -msgtype=scm+ -format=json',stdout=subprocess.PIPE, shell=True)
-    time.sleep(1)
-    number_of_points=0
-    for number_of_points in range(5):
-        try:
-            try:
-                line = proc.stdout.readline()
-            except:
-                print("No data!")
-            
-            try:
-                #print(line)
-                data=json.loads(line.decode("utf-8"))
-                #print(data)
-            except ValueError:
-                print("Json error")
-                data = False
-            if data:
-                meterID = str( int(data['Message']['EndpointID']))
-                consumption = str( int(data['Message']['Consumption']))
-                metertype = str(data['Message']['EndpointType'])
-                storeData(meterID,consumption,metertype)
-    
+GPIO.setup(button, GPIO.IN, pull_up_down=GPIO.PUD_DOWN) # Set pin 10 to be an input pin and set initial value to be pulled low (off)
+GPIO.add_event_detect(button, GPIO.RISING, 
+        callback=button_pressed_callback, bouncetime=200)
 
-        except KeyboardInterrupt:
+signal.signal(signal.SIGINT, signal_handler)
+try:    
+    while True:
+        GPIO.output(RedLED,GPIO.HIGH)
+        time.sleep(1)
+        proc = subprocess.Popen('/home/pi/go/bin/rtlamr -format=json',stdout=subprocess.PIPE, shell=True)
+        time.sleep(1)
+        number_of_points=0
+        current_time = time.time()
+        while (Timeout(current_time, 25)):
+            try:
+                try:
+                    line = proc.stdout.readline()
+                except:
+                    print("No data!")
+                
+                try:
+                    #print(line)
+                    data=json.loads(line.decode("utf-8"))
+                    #print(data)
+                except ValueError:
+                    print("Json error")
+                    number_of_points+=1
+                    data = False
+                if data:
+                    meterID = str( int(data['Message']['ID']))
+                    consumption = str( int(data['Message']['Consumption']))
+                    metertype = str(data['Message']['Type'])
+                    storeData(meterID,consumption,metertype)
+                      
+                    
+     
+            except KeyboardInterrupt:
+                print("interrupted!")
+                val1 = os.system("killall -KILL rtlamr")    
+                val2 = os.system("killall -KILL rtl_tcp")
             
-            print("interrupted!")
-            GPIO.output(RedLED,GPIO.LOW)
-            GPIO.output(greenLED,GPIO.LOW)
-            val1 = os.system("killall -KILL rtlamr")    
-            val2 = os.system("killall -KILL rtl_tcp")
-            
-    val1 = os.system("killall -KILL rtlamr")  
-    time.sleep(1)
-exit(0)
+        val1 = os.system("killall -KILL rtlamr")
+        time.sleep(1)
+        proc = subprocess.Popen('/home/pi/go/bin/rtlamr -msgtype=scm+ -format=json',stdout=subprocess.PIPE, shell=True)
+        time.sleep(1)
+        current_time = time.time()
+        while (Timeout(current_time, 25)):
+            try:
+                try:
+                    line = proc.stdout.readline()
+                except:
+                    print("No data!")
+                
+                try:
+                    #print(line)
+                    data=json.loads(line.decode("utf-8"))
+                    #print(data)
+                except ValueError:
+                    print("Json error")
+                    data = False
+                if data:
+                    meterID = str( int(data['Message']['EndpointID']))
+                    consumption = str( int(data['Message']['Consumption']))
+                    metertype = str(data['Message']['EndpointType'])
+                    storeData(meterID,consumption,metertype)
+        
+
+            except KeyboardInterrupt:
+                
+                print("interrupted!")
+                GPIO.output(RedLED,GPIO.LOW)
+                GPIO.output(greenLED,GPIO.LOW)
+                val1 = os.system("killall -KILL rtlamr")    
+                val2 = os.system("killall -KILL rtl_tcp")
+                
+        val1 = os.system("killall -KILL rtlamr")  
+        time.sleep(1)
+    exit(0)
+except:
+    print("crasher I hardley knower!")
+    GPIO.setmode(GPIO.BCM)
+    GPIO.output(RedLED,GPIO.LOW)
+    GPIO.output(greenLED,GPIO.LOW)
+    val1 = os.system("killall -KILL rtlamr")    
+    val2 = os.system("killall -KILL rtl_tcp")
